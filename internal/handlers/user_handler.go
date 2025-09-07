@@ -182,7 +182,7 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		user.Username = req.Username
 	}
 
-	if err := h.userService.UpdateUser(user); err != nil {
+	if err := h.userService.UpdateUser(user, detailLog); err != nil {
 		response := map[string]string{
 			"error": "update_failed",
 		}
@@ -211,13 +211,42 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 
 // GetUsers returns all users (admin only)
 func (h *UserHandler) GetUsers(c *gin.Context) {
+	summaryParam := logger.LogEventTag{
+		Node:        "client",
+		Command:     "get_users",
+		Description: "success",
+	}
+	detailLog := mlog.Log(c)
+	detailLog.Update("UseCase", summaryParam.Command)
+	headers := c.Request.Header
+	method := c.Request.Method
+	path := c.Request.URL.Path
+	query := c.Request.URL.Query()
+
 	userRole, exists := c.Get("user_role")
 	if !exists || (userRole != "admin") {
-		c.JSON(http.StatusForbidden, gin.H{
-			"error": "Insufficient permissions",
+		summaryParam.Code = "403"
+		summaryParam.Description = "insufficient_permissions"
+		detailLog.SetSummary(summaryParam).Info(logger.NewInbound(summaryParam.Command, "Insufficient permissions"), map[string]any{
+			"headers": headers,
+			"method":  method,
+			"path":    path,
+			"query":   query,
 		})
+
+		response := map[string]string{
+			"error": "insufficient_permissions",
+		}
+		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Insufficient permissions"), response)
+		c.JSON(http.StatusForbidden, response)
 		return
 	}
+	detailLog.SetSummary(summaryParam).Info(logger.NewInbound(summaryParam.Command, "Fetching all users"), map[string]any{
+		"headers": headers,
+		"method":  method,
+		"path":    path,
+		"query":   query,
+	})
 
 	// Parse query parameters for pagination
 	page := 1
@@ -235,11 +264,13 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 		}
 	}
 
-	users, err := h.userService.GetAllUsers()
+	users, err := h.userService.GetAllUsers(detailLog)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to fetch users",
-		})
+		response := map[string]string{
+			"error": "failed_to_fetch_users",
+		}
+		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Failed to fetch users"), response)
+		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
 
@@ -248,13 +279,15 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 	end := start + limit
 
 	if start >= len(users) {
-		c.JSON(http.StatusOK, gin.H{
+		response := map[string]any{
 			"users":       []interface{}{},
 			"total":       len(users),
 			"page":        page,
 			"limit":       limit,
 			"total_pages": (len(users) + limit - 1) / limit,
-		})
+		}
+		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Fetched all users successfully"), response)
+		c.JSON(http.StatusOK, response)
 		return
 	}
 
@@ -279,12 +312,13 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 			"updated_at": user.UpdatedAt,
 		})
 	}
-
-	c.JSON(http.StatusOK, gin.H{
+	response := map[string]any{
 		"users":       userResponses,
 		"total":       len(users),
 		"page":        page,
 		"limit":       limit,
 		"total_pages": (len(users) + limit - 1) / limit,
-	})
+	}
+	detailLog.Info(logger.NewOutbound(summaryParam.Command, "Fetched all users successfully"), response)
+	c.JSON(http.StatusOK, response)
 }

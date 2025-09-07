@@ -20,16 +20,46 @@ func NewUserService(db *gorm.DB) *UserService {
 }
 
 // CreateUser creates a new user with hashed password
-func (s *UserService) CreateUser(user *models.User) error {
+func (s *UserService) CreateUser(user *models.User, detailLog logger.CustomLoggerService) error {
+	start := time.Now()
+	summaryParam := logger.LogEventTag{
+		Node:        "gorm",
+		Command:     "create_user",
+		Code:        "200",
+		Description: "success",
+	}
+
 	// Hash the password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
+		detailLog.AddField("Error", err.Error())
 		return err
 	}
 	user.Password = string(hashedPassword)
-
+	detailLog.Info(logger.NewDBRequest(logger.INSERT, "Creating new user"), map[string]any{
+		"sql":    "INSERT INTO `users` (`username`,`email`,`password`,`is_active`,`created_at`,`updated_at`) VALUES (?,?,?,?,?,?)",
+		"params": []string{user.Username, user.Email, "****", fmt.Sprintf("%t", user.IsActive), user.CreatedAt.String(), user.UpdatedAt.String()},
+	})
 	// Create user in database
 	result := s.db.Create(user)
+	summaryParam.ResTime = time.Since(start).Milliseconds()
+	if result.Error != nil {
+		summaryParam.Code = "500"
+		summaryParam.Description = result.Error.Error()
+	}
+
+	detailLog.SetSummary(summaryParam).Info(logger.NewDBResponse(logger.INSERT, "User creation completed"), map[string]any{
+		"RowsAffected": result.RowsAffected,
+		"SQL":          result.Statement.SQL.String(),
+		"Var":          result.Statement.Vars,
+		"Error": func() string {
+			if result.Error != nil {
+				return result.Error.Error()
+			} else {
+				return ""
+			}
+		}(),
+	})
 	return result.Error
 }
 
@@ -145,15 +175,73 @@ func (s *UserService) VerifyPassword(hashedPassword, password string) error {
 }
 
 // UpdateUser updates user information
-func (s *UserService) UpdateUser(user *models.User) error {
+func (s *UserService) UpdateUser(user *models.User, detailLog logger.CustomLoggerService) error {
+	start := time.Now()
+	summaryParam := logger.LogEventTag{
+		Node:        "gorm",
+		Command:     "update_user",
+		Code:        "200",
+		Description: "success",
+	}
+	detailLog.Info(logger.NewDBRequest(logger.UPDATE, "Updating user information"), map[string]any{
+		"sql":    "UPDATE `users` SET `username`=?,`email`=?,`password`=?,`is_active`=?,`created_at`=?,`updated_at`=? WHERE `id` = ?",
+		"params": []string{user.Username, user.Email, "****", fmt.Sprintf("%t", user.IsActive), user.CreatedAt.String(), user.UpdatedAt.String(), fmt.Sprintf("%d", user.ID)},
+	})
 	result := s.db.Save(user)
+	summaryParam.ResTime = time.Since(start).Milliseconds()
+	if result.Error != nil {
+		summaryParam.Code = "500"
+		summaryParam.Description = result.Error.Error()
+	}
+	detailLog.SetSummary(summaryParam).Info(logger.NewDBResponse(logger.UPDATE, "User update completed"), map[string]any{
+		"RowsAffected": result.RowsAffected,
+		"SQL":          result.Statement.SQL.String(),
+		"Var":          result.Statement.Vars,
+		"Error": func() string {
+			if result.Error != nil {
+				return result.Error.Error()
+			} else {
+				return ""
+			}
+		}(),
+	})
 	return result.Error
 }
 
 // GetAllUsers retrieves all users (admin only)
-func (s *UserService) GetAllUsers() ([]models.User, error) {
+func (s *UserService) GetAllUsers(detailLog logger.CustomLoggerService) ([]models.User, error) {
+	start := time.Now()
+	summaryParam := logger.LogEventTag{
+		Node:        "gorm",
+		Command:     "find_all_users",
+		Code:        "200",
+		Description: "success",
+	}
+
+	detailLog.Info(logger.NewDBRequest(logger.QUERY, "Querying all users"), map[string]any{
+		"sql":    "SELECT * FROM `users` WHERE `users`.`deleted_at` IS NULL",
+		"params": []string{},
+	})
 	var users []models.User
 	result := s.db.Find(&users)
+	summaryParam.ResTime = time.Since(start).Milliseconds()
+	if result.Error != nil {
+		summaryParam.Code = "500"
+		summaryParam.Description = result.Error.Error()
+	}
+
+	detailLog.SetSummary(summaryParam).Info(logger.NewDBResponse(logger.QUERY, "All users query completed"), map[string]any{
+		"RowsAffected": result.RowsAffected,
+		"SQL":          result.Statement.SQL.String(),
+		"Var":          result.Statement.Vars,
+		"Error": func() string {
+			if result.Error != nil {
+				return result.Error.Error()
+			} else {
+				return ""
+			}
+		}(),
+	})
 	return users, result.Error
 }
 
@@ -165,11 +253,13 @@ func (s *UserService) ValidateUser(email, password string, detailLog logger.Cust
 	}
 
 	if !user.IsActive {
+		detailLog.AddField("Error", "account is deactivated")
 		return nil, errors.New("account is deactivated")
 	}
 
 	err = s.VerifyPassword(user.Password, password)
 	if err != nil {
+		detailLog.AddField("Error", "invalid credentials")
 		return nil, errors.New("invalid credentials")
 	}
 

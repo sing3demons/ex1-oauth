@@ -137,7 +137,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		IsActive:  true,
 	}
 
-	if err := h.userService.CreateUser(user); err != nil {
+	if err := h.userService.CreateUser(user, detailLog); err != nil {
 		summaryParam.Code = fmt.Sprintf("%d", http.StatusInternalServerError)
 		summaryParam.Description = err.Error()
 		response := map[string]string{
@@ -176,7 +176,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		"token_type":   "Bearer",
 	}
 	detailLog.Info(logger.NewOutbound(summaryParam.Command, "User registered successfully"), response)
-	// detailLog.End(http.StatusCreated, "")
 	c.JSON(http.StatusCreated, response)
 }
 
@@ -412,7 +411,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 func (h *AuthHandler) Authorize(c *gin.Context) {
 	summaryParam := logger.LogEventTag{
 		Node:        "client",
-		Command:     "logout",
+		Command:     "authorize",
 		Description: "success",
 	}
 	detailLog := mlog.Log(c)
