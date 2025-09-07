@@ -2,7 +2,9 @@ package services
 
 import (
 	"errors"
+	"oauth2-api/internal/logger"
 	"oauth2-api/internal/models"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -31,12 +33,35 @@ func (s *UserService) CreateUser(user *models.User) error {
 }
 
 // GetUserByEmail retrieves a user by email
-func (s *UserService) GetUserByEmail(email string) (*models.User, error) {
+func (s *UserService) GetUserByEmail(email string, detailLog logger.CustomLoggerService) (*models.User, error) {
+	start := time.Now()
+	summaryParam := logger.LogEventTag{
+		Node:        "gorm",
+		Command:     "find_user_by_email",
+		Code:        "200",
+		Description: "success",
+	}
+
+	// SELECT * FROM `users` WHERE email = "test@example.com" AND `users`.`deleted_at` IS NULL ORDER BY `users`.`id` LIMIT 1
+	detailLog.Info(logger.NewDBRequest(logger.QUERY, "Querying user by email"), map[string]any{
+		"sql":   "SELECT * FROM `users` WHERE email = ? AND `users`.`deleted_at` IS NULL ORDER BY `users`.`id` LIMIT 1",
+		"params": []string{email},
+	})
 	var user models.User
 	result := s.db.Where("email = ?", email).First(&user)
+	summaryParam.ResTime = time.Since(start).Milliseconds()
 	if result.Error != nil {
+		summaryParam.Code = "404"
+		summaryParam.Description = result.Error.Error()
+		detailLog.SetSummary(summaryParam).Info(logger.NewDBResponse(logger.QUERY, "User query completed with error"), map[string]any{
+			"return": result,
+		})
 		return nil, result.Error
 	}
+	detailLog.SetSummary(summaryParam).Info(logger.NewDBResponse(logger.QUERY, "User query completed successfully"), map[string]any{
+		"return": user,
+	})
+
 	return &user, nil
 }
 
@@ -51,12 +76,34 @@ func (s *UserService) GetUserByID(id uint) (*models.User, error) {
 }
 
 // GetUserByUsername retrieves a user by username
-func (s *UserService) GetUserByUsername(username string) (*models.User, error) {
+func (s *UserService) GetUserByUsername(username string, detailLog logger.CustomLoggerService) (*models.User, error) {
+	start := time.Now()
+	summaryParam := logger.LogEventTag{
+		Node:        "gorm",
+		Command:     "find_user_by_user",
+		Code:        "200",
+		Description: "success",
+	}
+
 	var user models.User
+	detailLog.Info(logger.NewDBRequest(logger.QUERY, "Querying user by username"), map[string]any{
+		"sql":    "SELECT * FROM `users` WHERE username = ? AND `users`.`deleted_at` IS NULL ORDER BY `users`.`id` LIMIT 1",
+		"params": []string{username},
+	})
 	result := s.db.Where("username = ?", username).First(&user)
+	summaryParam.ResTime = time.Since(start).Milliseconds()
 	if result.Error != nil {
+		summaryParam.Code = "404"
+		summaryParam.Description = result.Error.Error()
+		detailLog.SetSummary(summaryParam).Info(logger.NewDBResponse(logger.QUERY, "User query completed with error"), map[string]any{
+			"return": result,
+		})
 		return nil, result.Error
 	}
+	detailLog.SetSummary(summaryParam).Info(logger.NewDBResponse(logger.QUERY, "User query completed successfully"), map[string]any{
+		"return": user,
+	})
+
 	return &user, nil
 }
 
@@ -79,8 +126,8 @@ func (s *UserService) GetAllUsers() ([]models.User, error) {
 }
 
 // ValidateUser validates user credentials and returns the user if valid
-func (s *UserService) ValidateUser(email, password string) (*models.User, error) {
-	user, err := s.GetUserByEmail(email)
+func (s *UserService) ValidateUser(email, password string, detailLog logger.CustomLoggerService) (*models.User, error) {
+	user, err := s.GetUserByEmail(email, detailLog)
 	if err != nil {
 		return nil, errors.New("invalid credentials")
 	}

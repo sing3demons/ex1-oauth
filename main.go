@@ -5,10 +5,13 @@ import (
 	"oauth2-api/internal/config"
 	"oauth2-api/internal/database"
 	"oauth2-api/internal/handlers"
+	"oauth2-api/internal/logger"
 	"oauth2-api/internal/middleware"
 	"oauth2-api/internal/services"
+	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func main() {
@@ -41,6 +44,38 @@ func main() {
 func setupRouter(authHandler *handlers.AuthHandler, userHandler *handlers.UserHandler, jwtSecret string) *gin.Engine {
 	router := gin.Default()
 
+	logApp := logger.NewLogger(logger.LogConfig{
+		Level:             "debug",
+		EnableFileLogging: false,
+		LogFileProperties: logger.LogFileProperties{},
+	})
+
+	dirname := "logs/detail"
+	filename := "detail-%DATE%"
+	datePattern := "YYYY-MM-DD-HH"
+	extension := ".log"
+	logDetail := logger.NewLogger(logger.LogConfig{
+		Level:             "debug",
+		EnableFileLogging: true,
+		LogFileProperties: logger.LogFileProperties{
+			Filename:    filename,
+			Dirname:     dirname,
+			DatePattern: datePattern,
+			Extension:   extension,
+		},
+	})
+	logSummary := logger.NewLogger(logger.LogConfig{
+		Level:             "debug",
+		EnableFileLogging: true,
+		LogFileProperties: logger.LogFileProperties{
+			Filename:    "summary-%DATE%",
+			Dirname:     "logs/summary",
+			DatePattern: datePattern,
+			Extension:   extension,
+		},
+	})
+	maskingService := logger.NewMaskingService()
+
 	// CORS middleware
 	router.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
@@ -52,7 +87,35 @@ func setupRouter(authHandler *handlers.AuthHandler, userHandler *handlers.UserHa
 			return
 		}
 
+		sessionId := c.GetHeader("X-Session-ID")
+		if sessionId == "" {
+			sessionId = uuid.New().String()
+		}
+
+		reqId := c.Request.Header.Get("X-Request-ID")
+		if reqId == "" {
+			reqId = uuid.New().String()
+		}
+		t := logger.NewTimer()
+		csLog := logger.NewCustomLogger(logDetail, logSummary, t, maskingService)
+		hostName, _ := os.Hostname()
+		customLog := logger.LogDto{
+			ServiceName:      "oauth2-api",
+			LogType:          "detail",
+			ComponentVersion: "1.0.0",
+			Instance:         hostName,
+			SessionId:        sessionId,
+			RequestId:        reqId,
+			UseCase:          "none",
+		}
+		csLog.Init(customLog)
+		c.Set("logApp", logApp)
+		c.Set("customLog", csLog)
+
 		c.Next()
+
+		// After request
+		csLog.End(c.Writer.Status(), "")
 	})
 
 	// Public routes

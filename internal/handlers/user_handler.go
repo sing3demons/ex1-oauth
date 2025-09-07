@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"oauth2-api/internal/mlog"
 	"oauth2-api/internal/services"
 	"strconv"
 
@@ -51,6 +52,8 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 
 // UpdateProfile updates the current user's profile
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
+	detailLog := mlog.Log(c)
+
 	userID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -90,7 +93,7 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	}
 	if req.Username != "" {
 		// Check if username is already taken by another user
-		existingUser, err := h.userService.GetUserByUsername(req.Username)
+		existingUser, err := h.userService.GetUserByUsername(req.Username, detailLog)
 		if err == nil && existingUser.ID != user.ID {
 			c.JSON(http.StatusConflict, gin.H{
 				"error": "Username already taken",

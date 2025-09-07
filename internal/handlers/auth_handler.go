@@ -1,7 +1,12 @@
 package handlers
 
 import (
+	"bytes"
+	"fmt"
+	"io"
 	"net/http"
+	"oauth2-api/internal/logger"
+	"oauth2-api/internal/mlog"
 	"oauth2-api/internal/models"
 	"oauth2-api/internal/services"
 	"strconv"
@@ -45,29 +50,71 @@ type TokenResponse struct {
 	Scope        string `json:"scope,omitempty"`
 }
 
+func cloneRequestBody(req *http.Request) ([]byte, error) {
+	// อ่าน body ออกมา
+	bodyBytes, err := io.ReadAll(req.Body)
+	if err != nil {
+		return nil, err
+	}
+	// คืนค่า body กลับให้ req ใช้ต่อ
+	req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	return bodyBytes, nil
+}
+
 // Register handles user registration
 func (h *AuthHandler) Register(c *gin.Context) {
+	summaryParam := logger.LogEventTag{
+		Node:        "client",
+		Command:     "register",
+		Description: "success",
+	}
+	detailLog := mlog.Log(c)
+	detailLog.Update("UseCase", summaryParam.Command)
+
+	// clone body
+	body, _ := cloneRequestBody(c.Request)
+
+	detailLog.Info(logger.NewInbound(summaryParam.Command, "Start handling user registration"), map[string]any{
+		"headers": c.Request.Header,
+		"method":  c.Request.Method,
+		"path":    c.Request.URL.Path,
+		"body":    string(body),
+	})
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request data",
-			"details": err.Error(),
-		})
+		summaryParam.Description = err.Error()
+		summaryParam.Code = "400"
+		detailLog.SetSummary(summaryParam)
+
+		response := map[string]string{
+			"error": "invalid_request",
+		}
+		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Failed to bind request data"), response)
+		c.JSON(http.StatusBadRequest, response)
 		return
 	}
+	detailLog.SetSummary(summaryParam)
 
 	// Check if user already exists
-	if _, err := h.userService.GetUserByEmail(req.Email); err == nil {
-		c.JSON(http.StatusConflict, gin.H{
-			"error": "User with this email already exists",
-		})
+	if _, err := h.userService.GetUserByEmail(req.Email, detailLog); err == nil {
+		summaryParam.Code = fmt.Sprintf("%d", http.StatusConflict)
+		summaryParam.Description = "invalid_request"
+		response := map[string]string{
+			"error": summaryParam.Description,
+		}
+		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "User with this email already exists"), response)
+		c.JSON(http.StatusConflict, response)
 		return
 	}
 
-	if _, err := h.userService.GetUserByUsername(req.Username); err == nil {
-		c.JSON(http.StatusConflict, gin.H{
-			"error": "User with this username already exists",
-		})
+	if _, err := h.userService.GetUserByUsername(req.Username, detailLog); err == nil {
+		summaryParam.Code = fmt.Sprintf("%d", http.StatusConflict)
+		summaryParam.Description = "invalid_request"
+		response := map[string]string{
+			"error": summaryParam.Description,
+		}
+		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "User with this username already exists"), response)
+		c.JSON(http.StatusConflict, response)
 		return
 	}
 
@@ -83,24 +130,33 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	if err := h.userService.CreateUser(user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to create user",
-		})
+		summaryParam.Code = fmt.Sprintf("%d", http.StatusInternalServerError)
+		summaryParam.Description = err.Error()
+		response := map[string]string{
+			"error": summaryParam.Description,
+		}
+		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "Failed to create user"), response)
+		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
 
 	// Generate access token
 	accessToken, err := h.oauthService.GenerateAccessToken(user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to generate access token",
-		})
+		detailLog.AddField("Error", err.Error())
+		summaryParam.Code = fmt.Sprintf("%d", http.StatusInternalServerError)
+		summaryParam.Description = "server_error"
+		response := map[string]string{
+			"error": summaryParam.Description,
+		}
+		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "Failed to generate access token"), response)
+		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "User created successfully",
-		"user": gin.H{
+	response := map[string]any{
+		"message": "success",
+		"user": map[string]any{
 			"id":         user.ID,
 			"email":      user.Email,
 			"username":   user.Username,
@@ -110,11 +166,21 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		},
 		"access_token": accessToken,
 		"token_type":   "Bearer",
-	})
+	}
+	detailLog.Info(logger.NewOutbound(summaryParam.Command, "User registered successfully"), response)
+	// detailLog.End(http.StatusCreated, "")
+	c.JSON(http.StatusCreated, response)
 }
 
 // Login handles user authentication
 func (h *AuthHandler) Login(c *gin.Context) {
+	summaryParam := logger.LogEventTag{
+		Node:        "client",
+		Command:     "register",
+		Description: "success",
+	}
+	detailLog := mlog.Log(c)
+	detailLog.Update("UseCase", summaryParam.Command)
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -122,9 +188,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		})
 		return
 	}
+	detailLog.SetSummary(summaryParam)
 
 	// Validate user credentials
-	user, err := h.userService.ValidateUser(req.Email, req.Password)
+	user, err := h.userService.ValidateUser(req.Email, req.Password, detailLog)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": err.Error(),
