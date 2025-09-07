@@ -37,7 +37,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 
 	userID, exists := c.Get("user_id")
 	if !exists {
-		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "User not authenticated"), map[string]any{
+		detailLog.SetSummary(summaryParam).Info(logger.NewInbound(summaryParam.Command, "User not authenticated"), map[string]any{
 			"headers": headers,
 			"method":  method,
 			"path":    path,
@@ -48,12 +48,11 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 		response := map[string]string{
 			"error": "invalid_request",
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "User not authenticated"), response)
 		c.JSON(http.StatusUnauthorized, response)
 		return
 	}
 
-	detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "Fetching user profile"), map[string]any{
+	detailLog.SetSummary(summaryParam).Info(logger.NewInbound(summaryParam.Command, "Fetching user profile"), map[string]any{
 		"headers": headers,
 		"method":  method,
 		"path":    path,
@@ -66,7 +65,6 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 		response := map[string]string{
 			"error": "data_not_found",
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "User not found"), response)
 		c.JSON(http.StatusNotFound, response)
 		return
 	}
@@ -82,7 +80,6 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 		"created_at": user.CreatedAt,
 		"updated_at": user.UpdatedAt,
 	}
-	detailLog.Info(logger.NewOutbound(summaryParam.Command, "User profile fetched successfully"), response)
 	c.JSON(http.StatusOK, response)
 }
 
@@ -103,7 +100,7 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 
 	userID, exists := c.Get("user_id")
 	if !exists {
-		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "User not authenticated"), map[string]any{
+		detailLog.SetSummary(summaryParam).Info(logger.NewInbound(summaryParam.Command, "User not authenticated"), map[string]any{
 			"headers": headers,
 			"method":  method,
 			"path":    path,
@@ -114,7 +111,6 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		response := map[string]string{
 			"error": "invalid_request",
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "User not authenticated"), response)
 		c.JSON(http.StatusUnauthorized, response)
 		return
 	}
@@ -127,7 +123,7 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 
 	var req UpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "Invalid request data"), map[string]any{
+		detailLog.SetSummary(summaryParam).Info(logger.NewInbound(summaryParam.Command, "Invalid request data"), map[string]any{
 			"headers": headers,
 			"method":  method,
 			"path":    path,
@@ -139,11 +135,10 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		response := map[string]string{
 			"error": "invalid_request",
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Invalid request data"), response)
 		c.JSON(http.StatusBadRequest, response)
 		return
 	}
-	detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "Updating user profile"), map[string]any{
+	detailLog.SetSummary(summaryParam).Info(logger.NewInbound(summaryParam.Command, "Updating user profile"), map[string]any{
 		"headers": headers,
 		"method":  method,
 		"path":    path,
@@ -156,7 +151,6 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		response := map[string]string{
 			"error": "data_not_found",
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "User not found"), response)
 		c.JSON(http.StatusNotFound, response)
 		return
 	}
@@ -175,7 +169,6 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 			response := map[string]string{
 				"error": "username_taken",
 			}
-			detailLog.Info(logger.NewOutbound(summaryParam.Command, "Username already taken"), response)
 			c.JSON(http.StatusConflict, response)
 			return
 		}
@@ -186,7 +179,6 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		response := map[string]string{
 			"error": "update_failed",
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Failed to update user profile"), response)
 		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
@@ -204,7 +196,6 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 			"updated_at": user.UpdatedAt,
 		},
 	}
-	detailLog.Info(logger.NewOutbound(summaryParam.Command, "User profile updated successfully"), response)
 
 	c.JSON(http.StatusOK, response)
 }
@@ -237,7 +228,6 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 		response := map[string]string{
 			"error": "insufficient_permissions",
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Insufficient permissions"), response)
 		c.JSON(http.StatusForbidden, response)
 		return
 	}
@@ -269,7 +259,6 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 		response := map[string]string{
 			"error": "failed_to_fetch_users",
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Failed to fetch users"), response)
 		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
@@ -286,7 +275,6 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 			"limit":       limit,
 			"total_pages": (len(users) + limit - 1) / limit,
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Fetched all users successfully"), response)
 		c.JSON(http.StatusOK, response)
 		return
 	}
@@ -319,6 +307,5 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 		"limit":       limit,
 		"total_pages": (len(users) + limit - 1) / limit,
 	}
-	detailLog.Info(logger.NewOutbound(summaryParam.Command, "Fetched all users successfully"), response)
 	c.JSON(http.StatusOK, response)
 }

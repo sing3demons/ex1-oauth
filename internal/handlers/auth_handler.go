@@ -91,10 +91,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		response := map[string]string{
 			"error": "invalid_request",
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Failed to bind request data"), response)
 		c.JSON(http.StatusBadRequest, response)
 		return
 	}
+
 	detailLog.SetSummary(summaryParam).Info(logger.NewInbound(summaryParam.Command, "Start handling user registration"), map[string]any{
 		"headers": headers,
 		"method":  method,
@@ -110,7 +110,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		response := map[string]string{
 			"error": summaryParam.Description,
 		}
-		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "User with this email already exists"), response)
 		c.JSON(http.StatusConflict, response)
 		return
 	}
@@ -121,7 +120,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		response := map[string]string{
 			"error": summaryParam.Description,
 		}
-		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "User with this username already exists"), response)
 		c.JSON(http.StatusConflict, response)
 		return
 	}
@@ -143,7 +141,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		response := map[string]string{
 			"error": summaryParam.Description,
 		}
-		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "Failed to create user"), response)
 		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
@@ -157,7 +154,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		response := map[string]string{
 			"error": summaryParam.Description,
 		}
-		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "Failed to generate access token"), response)
 		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
@@ -175,7 +171,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		"access_token": accessToken,
 		"token_type":   "Bearer",
 	}
-	detailLog.Info(logger.NewOutbound(summaryParam.Command, "User registered successfully"), response)
 	c.JSON(http.StatusCreated, response)
 }
 
@@ -233,9 +228,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		detailLog.AddField("Error", err.Error())
 		summaryParam.Code = fmt.Sprintf("%d", http.StatusInternalServerError)
 		summaryParam.Description = "server_error"
-		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "Failed to generate access token"), map[string]any{
-			"error": summaryParam.Description,
-		})
+
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": summaryParam.Description,
 		})
@@ -247,9 +240,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	if err != nil {
 		summaryParam.Code = fmt.Sprintf("%d", http.StatusInternalServerError)
 		detailLog.AddField("Error", err.Error())
-		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "Failed to generate refresh token"), map[string]any{
-			"error": summaryParam.Description,
-		})
+
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": summaryParam.Description,
 		})
@@ -271,7 +262,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		"token_type":    "Bearer",
 		"expires_in":    3600, // 1 hour
 	}
-	detailLog.Info(logger.NewOutbound(summaryParam.Command, "User logged in successfully"), response)
 	c.JSON(http.StatusOK, response)
 }
 
@@ -309,7 +299,6 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		response := map[string]string{
 			"error": summaryParam.Description,
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Failed to bind request data"), response)
 		c.JSON(http.StatusBadRequest, response)
 		return
 	}
@@ -330,7 +319,6 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		response := map[string]string{
 			"error": summaryParam.Description,
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Invalid refresh token"), response)
 		c.JSON(http.StatusUnauthorized, response)
 		return
 	}
@@ -344,7 +332,6 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		response := map[string]string{
 			"error": summaryParam.Description,
 		}
-		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "Failed to generate access token"), response)
 		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
@@ -355,7 +342,6 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		"token_type":    "Bearer",
 		"expires_in":    3600, // 1 hour
 	}
-	detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "Token refreshed successfully"), response)
 
 	c.JSON(http.StatusOK, response)
 }
@@ -390,7 +376,6 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		response := map[string]string{
 			"error": summaryParam.Description,
 		}
-		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "No Authorization header provided"), response)
 		c.JSON(http.StatusBadRequest, response)
 		return
 	}
@@ -440,7 +425,6 @@ func (h *AuthHandler) Authorize(c *gin.Context) {
 		response := map[string]string{
 			"error": summaryParam.Description,
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Failed to validate request parameters"), response)
 		c.JSON(http.StatusBadRequest, response)
 		return
 	}
@@ -451,7 +435,6 @@ func (h *AuthHandler) Authorize(c *gin.Context) {
 		response := map[string]string{
 			"error": summaryParam.Description,
 		}
-		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "Unsupported response type"), response)
 		c.JSON(http.StatusBadRequest, response)
 		return
 	}
@@ -484,9 +467,6 @@ func (h *AuthHandler) Authorize(c *gin.Context) {
 		redirectURL += "&state=" + state
 	}
 
-	detailLog.Info(logger.NewOutbound(summaryParam.Command, "Authorization successful, redirecting"), map[string]any{
-		"redirect_url": redirectURL,
-	})
 	c.Redirect(http.StatusFound, redirectURL)
 }
 
@@ -524,10 +504,7 @@ func (h *AuthHandler) Token(c *gin.Context) {
 		response := map[string]string{
 			"error": summaryParam.Description,
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Unsupported grant type"), response)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "unsupported_grant_type",
-		})
+		c.JSON(http.StatusBadRequest, response)
 	}
 }
 
@@ -561,7 +538,6 @@ func (h *AuthHandler) handleAuthorizationCodeGrant(c *gin.Context) {
 		response := map[string]string{
 			"error": "invalid_client",
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Invalid client credentials"), response)
 
 		c.JSON(http.StatusUnauthorized, response)
 		return
@@ -574,7 +550,6 @@ func (h *AuthHandler) handleAuthorizationCodeGrant(c *gin.Context) {
 			"error": "invalid_grant",
 		}
 
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Invalid authorization code"), response)
 		c.JSON(http.StatusBadRequest, response)
 		return
 	}
@@ -585,7 +560,6 @@ func (h *AuthHandler) handleAuthorizationCodeGrant(c *gin.Context) {
 		response := map[string]string{
 			"error": "server_error",
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Failed to create OAuth tokens"), response)
 		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
@@ -597,7 +571,6 @@ func (h *AuthHandler) handleAuthorizationCodeGrant(c *gin.Context) {
 		RefreshToken: token.RefreshToken,
 		Scope:        token.Scope,
 	}
-	detailLog.Info(logger.NewOutbound(summaryParam.Command, "Authorization code grant successful"), response)
 
 	c.JSON(http.StatusOK, response)
 }
@@ -631,7 +604,6 @@ func (h *AuthHandler) handleRefreshTokenGrant(c *gin.Context) {
 		response := map[string]string{
 			"error": "invalid_client",
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Invalid client credentials"), response)
 		c.JSON(http.StatusUnauthorized, response)
 		return
 	}
@@ -642,7 +614,6 @@ func (h *AuthHandler) handleRefreshTokenGrant(c *gin.Context) {
 		response := map[string]string{
 			"error": "invalid_grant",
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Invalid refresh token"), response)
 		c.JSON(http.StatusUnauthorized, response)
 		return
 	}
@@ -654,7 +625,6 @@ func (h *AuthHandler) handleRefreshTokenGrant(c *gin.Context) {
 		RefreshToken: token.RefreshToken,
 		Scope:        token.Scope,
 	}
-	detailLog.Info(logger.NewOutbound(summaryParam.Command, "Refresh token grant successful"), response)
 
 	c.JSON(http.StatusOK, response)
 }
@@ -687,7 +657,6 @@ func (h *AuthHandler) UserInfo(c *gin.Context) {
 		response := map[string]string{
 			"error": summaryParam.Description,
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "User not authenticated"), response)
 		c.JSON(http.StatusUnauthorized, response)
 		return
 	}
@@ -697,7 +666,6 @@ func (h *AuthHandler) UserInfo(c *gin.Context) {
 		response := map[string]string{
 			"error": "User not found",
 		}
-		detailLog.Info(logger.NewOutbound(summaryParam.Command, "User not found"), response)
 		c.JSON(http.StatusNotFound, response)
 		return
 	}
@@ -710,8 +678,6 @@ func (h *AuthHandler) UserInfo(c *gin.Context) {
 		"last_name":  user.LastName,
 		"role":       user.Role,
 	}
-
-	detailLog.Info(logger.NewOutbound(summaryParam.Command, "User info retrieved successfully"), response)
 
 	c.JSON(http.StatusOK, response)
 }
