@@ -5,13 +5,11 @@ services:
     # user: root
     volumes:
       - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
-      - ../user-service/logs:/app/user-service/logs:ro
-      - ../product-service/logs:/app/product-service/logs:ro
-      - ../order-service/logs:/app/order-service/logs:ro
+      - ../logs:/app/oauth2-api/logs:ro
     environment:
       - KAFKA_HOST=kafka:9092
     networks:
-      - ms-service
+      - oauth2-network
 
   logstash:
     image: docker.elastic.co/logstash/logstash:7.17.2
@@ -27,17 +25,14 @@ services:
     depends_on:
       - elasticsearch
     networks:
-      - ms-service
+      - oauth2-network
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.17.2
     container_name: elasticsearch
-    expose:
-      - '9200'
-      - '9300'
-    # ports:
-    #   - '9200:9200'
-    #   - '9300:9300'
+    ports:
+      - '9200:9200'
+      - '9300:9300'
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
@@ -47,7 +42,7 @@ services:
         soft: -1
         hard: -1
     networks:
-      - ms-service
+      - oauth2-network
 
   kibana:
     image: docker.elastic.co/kibana/kibana:7.17.2
@@ -59,7 +54,8 @@ services:
     depends_on:
       - elasticsearch
     networks:
-      - ms-service
+      - oauth2-network
 networks:
-  ms-service:
-    name: ms-service
+  oauth2-network:
+    name: ex1-oauth_oauth2-network
+    external: true

@@ -5,7 +5,7 @@ filebeat.inputs:
     paths:
       - /app/oauth2-api/logs/detail/*.log
     fields:
-      kafka_topic: logs.user_service.detail
+      kafka_topic: logs.oauth2-api.detail
     json:
       keys_under_root: true
       add_error_key: true
@@ -15,47 +15,7 @@ filebeat.inputs:
     paths:
       - /app/oauth2-api/logs/summary/*.log
     fields:
-      kafka_topic: logs.user_service.summary
-    json:
-      keys_under_root: true
-      add_error_key: true
-  - type: filestream
-    id: product-service-detail-logs
-    enabled: true
-    paths:
-      - /app/product-service/logs/detail/*.log
-    fields:
-      kafka_topic: logs.product_service.detail
-    json:
-      keys_under_root: true
-      add_error_key: true
-  - type: filestream
-    id: product-service-summary-logs
-    enabled: true
-    paths:
-      - /app/product-service/logs/summary/*.log
-    fields:
-      kafka_topic: logs.product_service.summary
-    json:
-      keys_under_root: true
-      add_error_key: true
-  - type: filestream
-    id: order-service-detail-logs
-    enabled: true
-    paths:
-      - /app/order-service/logs/detail/*.log
-    fields:
-      kafka_topic: logs.order_service.detail
-    json:
-      keys_under_root: true
-      add_error_key: true
-  - type: filestream
-    id: order-service-summary-logs
-    enabled: true
-    paths:
-      - /app/order-service/logs/summary/*.log
-    fields:
-      kafka_topic: logs.order_service.summary
+      kafka_topic: logs.oauth2-api.summary
     json:
       keys_under_root: true
       add_error_key: true

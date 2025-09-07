@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -51,12 +52,21 @@ type UserInfo struct {
 }
 
 func main() {
+	serverHost := os.Getenv("OAUTH2_SERVER_HOST")
+	if serverHost == "" {
+		serverHost = "http://localhost:8080"
+	}
+
+	clientHost := os.Getenv("OAUTH2_CLIENT_HOST")
+	if clientHost == "" {
+		clientHost = "http://localhost:3000"
+	}
 	// Initialize OAuth client with configuration
 	client := &OAuthClient{
 		ClientID:     "test-client-id",     // ต้องตรงกับที่ตั้งค่าใน OAuth server
 		ClientSecret: "test-client-secret", // ต้องตรงกับที่ตั้งค่าใน OAuth server
-		RedirectURL:  "http://localhost:3000/callback",
-		ServerURL:    "http://localhost:8080", // OAuth server URL
+		RedirectURL:  clientHost + "/callback",
+		ServerURL:    serverHost, // OAuth server URL
 	}
 
 	// Setup Gin router

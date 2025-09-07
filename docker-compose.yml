@@ -15,8 +15,8 @@ services:
       postgres:
         condition: service_healthy
     volumes:
-      - ./:/app/data
-      - ./logs:/app/oauth2-api/logs
+      # - ./:/app/data
+      - ./logs:/app/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -34,6 +34,8 @@ services:
       - "3000:3000"
     environment:
       - GIN_MODE=release
+      - OAUTH2_SERVER_HOST=http://localhost:8080
+      - OAUTH2_CLIENT_HOST=http://localhost:3000
     depends_on:
       - oauth2-server
     healthcheck:

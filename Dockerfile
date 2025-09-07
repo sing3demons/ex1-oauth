@@ -21,7 +21,7 @@ FROM debian:bullseye-slim
 # Install ca-certificates and required libraries
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /root/
+WORKDIR /app/
 
 # Copy the binary from builder stage
 COPY --from=builder /app/main .
