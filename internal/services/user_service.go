@@ -42,9 +42,8 @@ func (s *UserService) GetUserByEmail(email string, detailLog logger.CustomLogger
 		Description: "success",
 	}
 
-	// SELECT * FROM `users` WHERE email = "test@example.com" AND `users`.`deleted_at` IS NULL ORDER BY `users`.`id` LIMIT 1
 	detailLog.Info(logger.NewDBRequest(logger.QUERY, "Querying user by email"), map[string]any{
-		"sql":   "SELECT * FROM `users` WHERE email = ? AND `users`.`deleted_at` IS NULL ORDER BY `users`.`id` LIMIT 1",
+		"sql":    "SELECT * FROM `users` WHERE email = ? AND `users`.`deleted_at` IS NULL ORDER BY `users`.`id` LIMIT 1",
 		"params": []string{email},
 	})
 	var user models.User
@@ -54,13 +53,17 @@ func (s *UserService) GetUserByEmail(email string, detailLog logger.CustomLogger
 		summaryParam.Code = "404"
 		summaryParam.Description = result.Error.Error()
 		detailLog.SetSummary(summaryParam).Info(logger.NewDBResponse(logger.QUERY, "User query completed with error"), map[string]any{
-			"return": result,
+			"RowsAffected": result.RowsAffected,
+			"SQL":          result.Statement.SQL.String(),
+			"Var":          result.Statement.Vars,
+			"Error":        result.Error.Error(),
 		})
 		return nil, result.Error
 	}
-	detailLog.SetSummary(summaryParam).Info(logger.NewDBResponse(logger.QUERY, "User query completed successfully"), map[string]any{
-		"return": user,
-	})
+	detailLog.SetSummary(summaryParam).Info(logger.NewDBResponse(logger.QUERY, "User query completed successfully"),
+		map[string]any{
+			"return": user,
+		})
 
 	return &user, nil
 }
@@ -96,7 +99,10 @@ func (s *UserService) GetUserByUsername(username string, detailLog logger.Custom
 		summaryParam.Code = "404"
 		summaryParam.Description = result.Error.Error()
 		detailLog.SetSummary(summaryParam).Info(logger.NewDBResponse(logger.QUERY, "User query completed with error"), map[string]any{
-			"return": result,
+			"RowsAffected": result.RowsAffected,
+			"SQL":          result.Statement.SQL.String(),
+			"Var":          result.Statement.Vars,
+			"Error":        result.Error.Error(),
 		})
 		return nil, result.Error
 	}

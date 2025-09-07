@@ -461,7 +461,11 @@ func toJSON(v any) string {
 		}
 
 		// b, _ := json.Marshal(v)
-		jsonStr, _ := json.Marshal(v)
+		fmt.Println("Marshaling to JSON")
+		jsonStr, err := json.Marshal(v)
+		if err != nil {
+			return fmt.Sprintf("error marshaling to JSON: %v", err)
+		}
 		strings := string(jsonStr)
 
 		return strings

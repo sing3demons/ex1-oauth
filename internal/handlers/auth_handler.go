@@ -74,17 +74,16 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	// clone body
 	body, _ := cloneRequestBody(c.Request)
 
-	detailLog.Info(logger.NewInbound(summaryParam.Command, "Start handling user registration"), map[string]any{
-		"headers": c.Request.Header,
-		"method":  c.Request.Method,
-		"path":    c.Request.URL.Path,
-		"body":    string(body),
-	})
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		summaryParam.Description = err.Error()
 		summaryParam.Code = "400"
-		detailLog.SetSummary(summaryParam)
+		detailLog.SetSummary(summaryParam).Info(logger.NewInbound(summaryParam.Command, "Start handling user registration"), map[string]any{
+			"headers": c.Request.Header,
+			"method":  c.Request.Method,
+			"path":    c.Request.URL.Path,
+			"body":    string(body),
+		})
 
 		response := map[string]string{
 			"error": "invalid_request",
@@ -93,7 +92,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, response)
 		return
 	}
-	detailLog.SetSummary(summaryParam)
+	detailLog.SetSummary(summaryParam).Info(logger.NewInbound(summaryParam.Command, "Start handling user registration"), map[string]any{
+		"headers": c.Request.Header,
+		"method":  c.Request.Method,
+		"path":    c.Request.URL.Path,
+		"body":    req,
+	})
 
 	// Check if user already exists
 	if _, err := h.userService.GetUserByEmail(req.Email, detailLog); err == nil {
