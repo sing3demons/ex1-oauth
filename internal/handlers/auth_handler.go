@@ -9,6 +9,7 @@ import (
 	"oauth2-api/internal/mlog"
 	"oauth2-api/internal/models"
 	"oauth2-api/internal/services"
+	"os"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -392,6 +393,19 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	})
 }
 
+type QueryParams struct {
+	ClientID     string `form:"client_id" binding:"required"`
+	RedirectURI  string `form:"redirect_uri"  binding:"omitempty"`
+	ResponseType string `form:"response_type" binding:"omitempty"`
+	Scope        string `form:"scope" binding:"omitempty"`
+	State        string `form:"state" binding:"omitempty"`
+}
+
+const (
+	TemplateIndex = "index.html"
+	TemplateError = "error.html"
+)
+
 // OAuth2 Authorization endpoint
 func (h *AuthHandler) Authorize(c *gin.Context) {
 	summaryParam := logger.LogEventTag{
@@ -404,21 +418,39 @@ func (h *AuthHandler) Authorize(c *gin.Context) {
 	headers := c.Request.Header
 	method := c.Request.Method
 	path := c.Request.URL.Path
-	query := c.Request.URL.Query()
+
+	query := QueryParams{}
+
+	if err := c.ShouldBindQuery(&query); err != nil {
+		summaryParam.Code = "400"
+		summaryParam.Description = err.Error()
+		detailLog.SetSummary(summaryParam).Info(logger.NewInbound(summaryParam.Command, "Start handling OAuth2 authorization"), map[string]any{
+			"headers": headers,
+			"method":  method,
+			"path":    path,
+			"query":   query,
+		})
+		response := map[string]string{
+			"error": "missing_required_parameters",
+		}
+		c.JSON(http.StatusBadRequest, response)
+		return
+	}
 	detailLog.Info(logger.NewInbound(summaryParam.Command, "Start handling OAuth2 authorization"), map[string]any{
 		"headers": headers,
 		"method":  method,
 		"path":    path,
 		"query":   query,
 	})
-	clientID := c.Query("client_id")
-	redirectURI := c.Query("redirect_uri")
-	responseType := c.Query("response_type")
-	scope := c.Query("scope")
-	state := c.Query("state")
+
+	clientID := query.ClientID
+	redirectURI := query.RedirectURI
+	responseType := query.ResponseType
+	scope := query.Scope
+	state := query.State
 
 	// Validate required parameters
-	if clientID == "" || redirectURI == "" || responseType == "" {
+	if clientID == "" || responseType == "" {
 		summaryParam.Code = "400"
 		summaryParam.Description = "missing_required_parameters"
 		detailLog.SetSummary(summaryParam)
@@ -432,6 +464,8 @@ func (h *AuthHandler) Authorize(c *gin.Context) {
 	if responseType != "code" {
 		summaryParam.Code = "400"
 		summaryParam.Description = "unsupported_response_type"
+		detailLog.SetSummary(summaryParam)
+
 		response := map[string]string{
 			"error": summaryParam.Description,
 		}
@@ -457,6 +491,22 @@ func (h *AuthHandler) Authorize(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to generate authorization code",
+		})
+		return
+	}
+
+	if redirectURI == "" {
+		_, err := os.Stat("templates/" + TemplateIndex)
+		if os.IsNotExist(err) {
+			response := map[string]string{
+				"code": authCode.Code,
+			}
+			c.JSON(http.StatusOK, response)
+			return
+		}
+
+		c.HTML(http.StatusOK, TemplateIndex, gin.H{
+			"title": "OAuth2 Client Demo",
 		})
 		return
 	}

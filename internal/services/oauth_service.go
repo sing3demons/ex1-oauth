@@ -419,9 +419,10 @@ func (s *OAuthService) ValidateRedirectURI(clientID, redirectURI string, detailL
 	detailLog.SetSummary(summaryParam).Info(logger.NewDBResponse(logger.QUERY, "OAuth client query completed successfully"), map[string]any{
 		"return": client,
 	})
-
+	if redirectURI == "" {
+		return nil // No redirect URI to validate
+	}
 	re := regexp.MustCompile(redirectURI)
-
 	// Simple validation - check if redirect URI is in the allowed URIs
 	// In production, you'd want more sophisticated URI validation
 	allowedURIs := strings.Split(strings.Trim(client.RedirectURIs, "[]\""), "\",\"")

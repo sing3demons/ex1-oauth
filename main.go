@@ -53,6 +53,8 @@ func (w bodyLogWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
+
+
 func setupRouter(authHandler *handlers.AuthHandler, userHandler *handlers.UserHandler, jwtSecret string) *gin.Engine {
 	router := gin.Default()
 
@@ -135,11 +137,12 @@ func setupRouter(authHandler *handlers.AuthHandler, userHandler *handlers.UserHa
 			"body":    blw.body.String(),
 			"status":  c.Writer.Status(),
 		}
-		fmt.Println(response)
 		useCase := csLog.GetLogDto().UseCase
 		csLog.Info(logger.NewOutbound(useCase, fmt.Sprintf("%s -> %s", c.Request.Method, c.Request.URL.Path)), response)
 		csLog.End(c.Writer.Status(), "")
 	})
+
+	router.LoadHTMLGlob("templates/*")
 
 	// Public routes
 	v1 := router.Group("/api/v1")
