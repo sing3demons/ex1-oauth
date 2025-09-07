@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.23-bullseye AS builder
 
 WORKDIR /app
 
@@ -15,10 +15,11 @@ COPY . .
 # Build the application
 RUN go build -o main .
 
-# Final stage
-FROM alpine:3.18
+# Final stage - use Debian instead of Alpine for CGO compatibility
+FROM debian:bullseye-slim
 
-RUN apk --no-cache add ca-certificates
+# Install ca-certificates and required libraries
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /root/
 
@@ -27,11 +28,6 @@ COPY --from=builder /app/main .
 
 # Expose port
 EXPOSE 8080
-
-# Set environment variables
-ENV PORT=8080
-ENV DATABASE_URL=oauth.db
-ENV JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 
 # Run the application
 CMD ["./main"]
