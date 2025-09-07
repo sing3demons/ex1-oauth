@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"oauth2-api/internal/logger"
 	"oauth2-api/internal/models"
 	"time"
@@ -69,12 +70,37 @@ func (s *UserService) GetUserByEmail(email string, detailLog logger.CustomLogger
 }
 
 // GetUserByID retrieves a user by ID
-func (s *UserService) GetUserByID(id uint) (*models.User, error) {
+func (s *UserService) GetUserByID(id uint, detailLog logger.CustomLoggerService) (*models.User, error) {
+	start := time.Now()
+	summaryParam := logger.LogEventTag{
+		Node:        "gorm",
+		Command:     "find_user_by_id",
+		Code:        "200",
+		Description: "success",
+	}
+
+	detailLog.Info(logger.NewDBRequest(logger.QUERY, "Querying user by ID"), map[string]any{
+		"sql":    "SELECT * FROM `users` WHERE id = ? AND `users`.`deleted_at` IS NULL ORDER BY `users`.`id` LIMIT 1",
+		"params": []string{fmt.Sprintf("%d", id)},
+	})
 	var user models.User
 	result := s.db.First(&user, id)
+	summaryParam.ResTime = time.Since(start).Milliseconds()
 	if result.Error != nil {
+		summaryParam.Code = "404"
+		summaryParam.Description = result.Error.Error()
+		detailLog.SetSummary(summaryParam).Info(logger.NewDBResponse(logger.QUERY, "User query completed with error"), map[string]any{
+			"RowsAffected": result.RowsAffected,
+			"SQL":          result.Statement.SQL.String(),
+			"Var":          result.Statement.Vars,
+			"Error":        result.Error.Error(),
+		})
 		return nil, result.Error
 	}
+
+	detailLog.SetSummary(summaryParam).Info(logger.NewDBResponse(logger.QUERY, "User query completed successfully"), map[string]any{
+		"return": user,
+	})
 	return &user, nil
 }
 

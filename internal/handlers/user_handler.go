@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"oauth2-api/internal/logger"
 	"oauth2-api/internal/mlog"
 	"oauth2-api/internal/services"
 	"strconv"
@@ -21,23 +22,56 @@ func NewUserHandler(userService *services.UserService) *UserHandler {
 
 // GetProfile returns the current user's profile
 func (h *UserHandler) GetProfile(c *gin.Context) {
+	summaryParam := logger.LogEventTag{
+		Node:        "client",
+		Command:     "get_profile",
+		Description: "success",
+	}
+	detailLog := mlog.Log(c)
+	detailLog.Update("UseCase", summaryParam.Command)
+	body, _ := cloneRequestBody(c.Request)
+	headers := c.Request.Header
+	method := c.Request.Method
+	path := c.Request.URL.Path
+	query := c.Request.URL.Query()
+
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "User not authenticated",
+		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "User not authenticated"), map[string]any{
+			"headers": headers,
+			"method":  method,
+			"path":    path,
+			"query":   query,
+			"body":    string(body),
 		})
+
+		response := map[string]string{
+			"error": "invalid_request",
+		}
+		detailLog.Info(logger.NewOutbound(summaryParam.Command, "User not authenticated"), response)
+		c.JSON(http.StatusUnauthorized, response)
 		return
 	}
 
-	user, err := h.userService.GetUserByID(userID.(uint))
+	detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "Fetching user profile"), map[string]any{
+		"headers": headers,
+		"method":  method,
+		"path":    path,
+		"query":   query,
+		"body":    string(body),
+	})
+
+	user, err := h.userService.GetUserByID(userID.(uint), detailLog)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "User not found",
-		})
+		response := map[string]string{
+			"error": "data_not_found",
+		}
+		detailLog.Info(logger.NewOutbound(summaryParam.Command, "User not found"), response)
+		c.JSON(http.StatusNotFound, response)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	response := map[string]any{
 		"id":         user.ID,
 		"email":      user.Email,
 		"username":   user.Username,
@@ -47,18 +81,41 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 		"is_active":  user.IsActive,
 		"created_at": user.CreatedAt,
 		"updated_at": user.UpdatedAt,
-	})
+	}
+	detailLog.Info(logger.NewOutbound(summaryParam.Command, "User profile fetched successfully"), response)
+	c.JSON(http.StatusOK, response)
 }
 
 // UpdateProfile updates the current user's profile
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
+	summaryParam := logger.LogEventTag{
+		Node:        "client",
+		Command:     "update_profile",
+		Description: "success",
+	}
 	detailLog := mlog.Log(c)
+	detailLog.Update("UseCase", summaryParam.Command)
+	body, _ := cloneRequestBody(c.Request)
+	headers := c.Request.Header
+	method := c.Request.Method
+	path := c.Request.URL.Path
+	query := c.Request.URL.Query()
 
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "User not authenticated",
+		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "User not authenticated"), map[string]any{
+			"headers": headers,
+			"method":  method,
+			"path":    path,
+			"query":   query,
+			"body":    string(body),
 		})
+
+		response := map[string]string{
+			"error": "invalid_request",
+		}
+		detailLog.Info(logger.NewOutbound(summaryParam.Command, "User not authenticated"), response)
+		c.JSON(http.StatusUnauthorized, response)
 		return
 	}
 
@@ -70,17 +127,37 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 
 	var req UpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request data",
+		detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "Invalid request data"), map[string]any{
+			"headers": headers,
+			"method":  method,
+			"path":    path,
+			"query":   query,
+			"body":    string(body),
+			"error":   err.Error(),
 		})
+
+		response := map[string]string{
+			"error": "invalid_request",
+		}
+		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Invalid request data"), response)
+		c.JSON(http.StatusBadRequest, response)
 		return
 	}
+	detailLog.SetSummary(summaryParam).Info(logger.NewOutbound(summaryParam.Command, "Updating user profile"), map[string]any{
+		"headers": headers,
+		"method":  method,
+		"path":    path,
+		"query":   query,
+		"body":    req,
+	})
 
-	user, err := h.userService.GetUserByID(userID.(uint))
+	user, err := h.userService.GetUserByID(userID.(uint), detailLog)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "User not found",
-		})
+		response := map[string]string{
+			"error": "data_not_found",
+		}
+		detailLog.Info(logger.NewOutbound(summaryParam.Command, "User not found"), response)
+		c.JSON(http.StatusNotFound, response)
 		return
 	}
 
@@ -95,24 +172,28 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		// Check if username is already taken by another user
 		existingUser, err := h.userService.GetUserByUsername(req.Username, detailLog)
 		if err == nil && existingUser.ID != user.ID {
-			c.JSON(http.StatusConflict, gin.H{
-				"error": "Username already taken",
-			})
+			response := map[string]string{
+				"error": "username_taken",
+			}
+			detailLog.Info(logger.NewOutbound(summaryParam.Command, "Username already taken"), response)
+			c.JSON(http.StatusConflict, response)
 			return
 		}
 		user.Username = req.Username
 	}
 
 	if err := h.userService.UpdateUser(user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to update profile",
-		})
+		response := map[string]string{
+			"error": "update_failed",
+		}
+		detailLog.Info(logger.NewOutbound(summaryParam.Command, "Failed to update user profile"), response)
+		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	response := map[string]any{
 		"message": "Profile updated successfully",
-		"user": gin.H{
+		"user": map[string]any{
 			"id":         user.ID,
 			"email":      user.Email,
 			"username":   user.Username,
@@ -122,7 +203,10 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 			"is_active":  user.IsActive,
 			"updated_at": user.UpdatedAt,
 		},
-	})
+	}
+	detailLog.Info(logger.NewOutbound(summaryParam.Command, "User profile updated successfully"), response)
+
+	c.JSON(http.StatusOK, response)
 }
 
 // GetUsers returns all users (admin only)
